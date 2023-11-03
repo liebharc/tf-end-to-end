@@ -1,0 +1,7 @@
+{
+    "corpus_path":"V:/Music/Mason/project/primus_data",
+    "model_path": "V:/Music/Mason/project/models/test.meta",
+    "voc_path": "V:/Music/Mason/project/tf-end-to-end/Data/vocabulary_semantic.txt",
+    "voc_type": "semantic",
+    "set_path": "V:/Music/Mason/project/tf-end-to-end/Data/train.txt"
+}

@@ -57,25 +57,11 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
         )
     else:
         logging.basicConfig(level=logging.WARNING)
+    
+    assert os.path.exists(os.path.dirname(model_path)), 'Path does not exist: ' + os.path.dirname(model_path)
+    for path in [corpus_path, set_path, voc_path]: assert os.path.exists(path), 'Path does not exist: ' + path
 
-    if not os.path.exists(os.path.dirname(model_path)):
-        logging.error('Model path does not exist.')
-        return
-    
-    if not os.path.exists(corpus_path):
-        logging.error('Corpus path does not exist.')
-        return
-
-    if not os.path.exists(set_path):
-        logging.error('Set path does not exist.')
-        return
-    
-    if not os.path.exists(voc_path):
-        logging.error('Vocabulary path does not exist.')
-        return
-    
     # Set up tensorflow 
-    # Disable eager execution
     tf.compat.v1.disable_eager_execution()        
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth=True
