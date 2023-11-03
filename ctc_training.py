@@ -1,35 +1,102 @@
 import tensorflow as tf
+import argparse
+import logging
+import json
+import os
+
 from primus import CTC_PriMuS
 import ctc_utils
 import ctc_model
-import argparse
 
-import os
+SAVE_PERIOD = 1000
+IMG_HEIGHT = 128
+MAX_EPOCHS = 64000
+DROPOUT = 0.5
+CONFIG_PATH = os.path.join(os.getcwd(),'config.json')
 
-def train(corpus_path, set_path, voc_path, semantic_path, model_path):
-    config = tf.ConfigProto()
+def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
+    validation_batch, validation_size = primus.getValidation(params)
+    
+    val_idx = 0
+    
+    val_ed = 0
+    val_len = 0
+    val_count = 0
+        
+    while val_idx < validation_size:
+        mini_batch_feed_dict = {
+            inputs: validation_batch['inputs'][val_idx:val_idx+params['batch_size']],
+            seq_len: validation_batch['seq_lengths'][val_idx:val_idx+params['batch_size']],
+            rnn_keep_prob: 1.0            
+        }            
+                    
+        
+        prediction = sess.run(decoded,
+                            mini_batch_feed_dict)
+    
+        str_predictions = ctc_utils.sparse_tensor_to_strs(prediction)
+    
+
+        for i in range(len(str_predictions)):
+            ed = ctc_utils.edit_distance(str_predictions[i], validation_batch['targets'][val_idx+i])
+            val_ed = val_ed + ed
+            val_len = val_len + len(validation_batch['targets'][val_idx+i])
+            val_count = val_count + 1
+            
+        val_idx = val_idx + params['batch_size']
+        
+    return val_ed, val_len, val_count
+    
+# Train the model with the given parameters and save it to model_path
+def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batches=False, verbose=False):   
+    if verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+    else:
+        logging.basicConfig(level=logging.WARNING)
+
+    if not os.path.exists(os.path.dirname(model_path)):
+        logging.error('Model path does not exist.')
+        return
+    
+    if not os.path.exists(corpus_path):
+        logging.error('Corpus path does not exist.')
+        return
+
+    if not os.path.exists(set_path):
+        logging.error('Set path does not exist.')
+        return
+    
+    if not os.path.exists(voc_path):
+        logging.error('Vocabulary path does not exist.')
+        return
+    
+    # Set up tensorflow 
+    # Disable eager execution
+    tf.compat.v1.disable_eager_execution()        
+    config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth=True
-    tf.reset_default_graph()
-    sess = tf.InteractiveSession(config=config)
+    tf.compat.v1.reset_default_graph()
+    sess = tf.compat.v1.InteractiveSession(config=config)
 
     # Load primus
-    primus = CTC_PriMuS(corpus_path,set_path,voc_path, semantic_path, val_split = 0.1)
+    primus = CTC_PriMuS(corpus_path,set_path,voc_path, voc_type, val_split = 0.1)
 
-    # Parameterization
-    img_height = 128
-    params = ctc_model.default_model_params(img_height,primus.vocabulary_size)
-    max_epochs = 64000
-    dropout = 0.5
+    # Model parameters
+    params = ctc_model.default_model_params(IMG_HEIGHT,primus.vocabulary_size)
 
     # Model
     inputs, seq_len, targets, decoded, loss, rnn_keep_prob = ctc_model.ctc_crnn(params)
-    train_opt = tf.train.AdamOptimizer().minimize(loss)
+    train_opt = tf.compat.v1.train.AdamOptimizer().minimize(loss)
 
-    saver = tf.train.Saver(max_to_keep=None)
-    sess.run(tf.global_variables_initializer())
+    saver = tf.compat.v1.train.Saver(max_to_keep=None)
+    sess.run(tf.compat.v1.global_variables_initializer())
 
     # Training loop
-    for epoch in range(max_epochs):
+    for epoch in range(MAX_EPOCHS):
         batch = primus.nextBatch(params)
 
         _, loss_value = sess.run([train_opt, loss],
@@ -37,55 +104,31 @@ def train(corpus_path, set_path, voc_path, semantic_path, model_path):
                                     inputs: batch['inputs'],
                                     seq_len: batch['seq_lengths'],
                                     targets: ctc_utils.sparse_tuple_from(batch['targets']),
-                                    rnn_keep_prob: dropout,
+                                    rnn_keep_prob: DROPOUT,
                                 })
 
-        if epoch % 1000 == 0:
-            # VALIDATION
-            print ('Loss value at epoch ' + str(epoch) + ':' + str(loss_value))
-            print ('Validating...')
-
-            validation_batch, validation_size = primus.getValidation(params)
+        if epoch % SAVE_PERIOD == 0:
+            # Validate
+            logging.info('Loss value at epoch ' + str(epoch) + ':' + str(loss_value))
             
-            val_idx = 0
+            if validate_batches:
+                val_ed, val_len, val_count = validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded)
+                logging.info('[Epoch ' + str(epoch) + '] ' + str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')    
             
-            val_ed = 0
-            val_len = 0
-            val_count = 0
-                
-            while val_idx < validation_size:
-                mini_batch_feed_dict = {
-                    inputs: validation_batch['inputs'][val_idx:val_idx+params['batch_size']],
-                    seq_len: validation_batch['seq_lengths'][val_idx:val_idx+params['batch_size']],
-                    rnn_keep_prob: 1.0            
-                }            
-                            
-                
-                prediction = sess.run(decoded,
-                                    mini_batch_feed_dict)
-        
-                str_predictions = ctc_utils.sparse_tensor_to_strs(prediction)
-        
-
-                for i in range(len(str_predictions)):
-                    ed = ctc_utils.edit_distance(str_predictions[i], validation_batch['targets'][val_idx+i])
-                    val_ed = val_ed + ed
-                    val_len = val_len + len(validation_batch['targets'][val_idx+i])
-                    val_count = val_count + 1
-                    
-                val_idx = val_idx + params['batch_size']
-        
-            print ('[Epoch ' + str(epoch) + '] ' + str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')        
-            print ('Saving the model...')
+            # Save model
             saver.save(sess,model_path,global_step=epoch)
-            print ('------------------------------')
+            logging.info('Model saved to ' + model_path, )
 
 if __name__ == '__main__':
+    configured_defaults = json.load(open(CONFIG_PATH))
+
     parser = argparse.ArgumentParser(description='Train model.')
-    parser.add_argument('-corpus', dest='corpus', type=str, required=True, help='Path to the corpus.')
-    parser.add_argument('-set',  dest='set', type=str, required=True, help='Path to the set file.')
-    parser.add_argument('-save_model', dest='save_model', type=str, required=True, help='Path to save the model.')
-    parser.add_argument('-vocabulary', dest='voc', type=str, required=True, help='Path to the vocabulary file.')
-    parser.add_argument('-semantic', dest='semantic', action="store_true", default=False)
+    parser.add_argument('-corpus', dest='corpus', type=str, required=False, help='Path to the corpus.', default=configured_defaults['corpus_path'])
+    parser.add_argument('-set',  dest='set', type=str, required=False, help='Path to the set file.', default=configured_defaults['set_path'])
+    parser.add_argument('-save_model', dest='save_model', type=str, required=False, help='Path to save the model.', default=configured_defaults['model_path'])
+    parser.add_argument('-vocabulary', dest='voc', type=str, required=False, help='Path to the vocabulary file.', default=configured_defaults['voc_path'])
+    parser.add_argument('-voc_type', dest='voc_type', required=False, default=configured_defaults['voc_type'], choices=['semantic','agnostic'], help='Vocabulary type.')
+    parser.add_argument('-verbose', dest='verbose', action="store_true", default=False, required=False)
+    parser.add_argument('-validate_batches', dest='validate_batches', action="store_true", default=False, required=False)
     args = parser.parse_args()
     train(args.corpus, args.set, args.voc, args.semantic, args.save_model)

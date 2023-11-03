@@ -9,8 +9,8 @@ class CTC_PriMuS:
     validation_dict = None
 
 
-    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, semantic, distortions = False, val_split = 0.0):
-        self.semantic = semantic
+    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, distortions = False, val_split = 0.0):
+        self.voc_type = voc_type
         self.distortions = distortions
         self.corpus_dirpath = corpus_dirpath
 
@@ -64,12 +64,7 @@ class CTC_PriMuS:
             sample_img = ctc_utils.resize(sample_img,height)
             images.append(ctc_utils.normalize(sample_img))
 
-            # GROUND TRUTH
-            if self.semantic:
-                sample_full_filepath = sample_fullpath + '.semantic'
-            else:
-                sample_full_filepath = sample_fullpath + '.agnostic'
-            
+            sample_full_filepath = sample_filepath + '.' + self.voc_type
             sample_gt_file = open(sample_full_filepath, 'r')
             sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())
             sample_gt_file.close()
@@ -119,12 +114,7 @@ class CTC_PriMuS:
                 sample_img = ctc_utils.resize(sample_img,height)
                 images.append(ctc_utils.normalize(sample_img))
     
-                # GROUND TRUTH
-                if self.semantic:
-                    sample_full_filepath = sample_fullpath + '.semantic'
-                else:
-                    sample_full_filepath = sample_fullpath + '.agnostic'
-                
+                sample_full_filepath = sample_filepath + '.' + self.voc_type            
                 sample_gt_file = open(sample_full_filepath, 'r')
             
                 sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())
