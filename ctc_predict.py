@@ -38,12 +38,12 @@ def predict(image_path, model_path, voc_file):
 
     decoded, _ = tf.compat.v1.nn.ctc_greedy_decoder(logits, seq_len)
 
-    image = cv2.imread(image_path)
-    #convert the image to grayscale
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     image = ctc_utils.resize(image, HEIGHT)
     image = ctc_utils.normalize(image)
     image = np.asarray(image).reshape(1,image.shape[0],image.shape[1],1)
+    assert image.shape[1] == HEIGHT
+    assert image.shape[3] == 1
 
     seq_lengths = [ image.shape[2] / WIDTH_REDUCTION ]
 

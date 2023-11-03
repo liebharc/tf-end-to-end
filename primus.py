@@ -55,16 +55,17 @@ class CTC_PriMuS:
             sample_filepath = self.training_list[self.current_idx]
             sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
 
-            # IMAGE
             if self.distortions:
-                sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', False) # Grayscale is assumed
+                sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', cv2.IMREAD_GRAYSCALE)
             else:
-                sample_img = cv2.imread(sample_fullpath + '.png', False)  # Grayscale is assumed!
+                sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
+            assert len(sample_img.shape) == 2
+
             height = params['img_height']
             sample_img = ctc_utils.resize(sample_img,height)
             images.append(ctc_utils.normalize(sample_img))
 
-            sample_full_filepath = sample_filepath + '.' + self.voc_type
+            sample_full_filepath = sample_fullpath + '.' + self.voc_type
             sample_gt_file = open(sample_full_filepath, 'r')
             sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())
             sample_gt_file.close()
@@ -109,7 +110,8 @@ class CTC_PriMuS:
                 sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
     
                 # IMAGE
-                sample_img = cv2.imread(sample_fullpath + '.png', False)  # Grayscale is assumed!
+                sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)  # Grayscale is assumed!
+                assert len(sample_img.shape) == 2
                 height = params['img_height']
                 sample_img = ctc_utils.resize(sample_img,height)
                 images.append(ctc_utils.normalize(sample_img))

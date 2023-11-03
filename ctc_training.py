@@ -14,6 +14,7 @@ MAX_EPOCHS = 64000
 DROPOUT = 0.5
 CONFIG_PATH = os.path.join(os.getcwd(),'config.json')
 
+# Calculate the sample error rate (SER) of the model
 def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
     validation_batch, validation_size = primus.getValidation(params)
     
@@ -58,8 +59,8 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
     else:
         logging.basicConfig(level=logging.WARNING)
     
-    assert os.path.exists(os.path.dirname(model_path)), 'Path does not exist: ' + os.path.dirname(model_path)
-    for path in [corpus_path, set_path, voc_path]: assert os.path.exists(path), 'Path does not exist: ' + path
+    assert os.path.exists(os.path.dirname(model_path)), 'Directory does not exist: ' + os.path.dirname(model_path)
+    for path in [corpus_path, set_path, voc_path]: assert os.path.exists(path), 'File does not exist: ' + path
 
     # Set up tensorflow 
     tf.compat.v1.disable_eager_execution()        
@@ -114,7 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('-save_model', dest='save_model', type=str, required=False, help='Path to save the model.', default=configured_defaults['model_path'])
     parser.add_argument('-vocabulary', dest='voc', type=str, required=False, help='Path to the vocabulary file.', default=configured_defaults['voc_path'])
     parser.add_argument('-voc_type', dest='voc_type', required=False, default=configured_defaults['voc_type'], choices=['semantic','agnostic'], help='Vocabulary type.')
-    parser.add_argument('-verbose', dest='verbose', action="store_true", default=False, required=False)
     parser.add_argument('-validate_batches', dest='validate_batches', action="store_true", default=False, required=False)
+    parser.add_argument('-verbose', dest='verbose', action="store_true", default=False, required=False)
     args = parser.parse_args()
-    train(args.corpus, args.set, args.voc, args.semantic, args.save_model)
+
+    train(args.corpus, args.set, args.voc, args.voc_type, args.save_model, args.validate_batches, args.verbose)
