@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import ctc_utils
+import logging
 import random
 
 class CTC_PriMuS:
@@ -51,7 +52,7 @@ class CTC_PriMuS:
         labels = []
 
         # Read files
-        for _ in range(params['batch_size']):
+        for i in range(params['batch_size']):
             sample_filepath = self.training_list[self.current_idx]
             sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
 
@@ -66,7 +67,14 @@ class CTC_PriMuS:
             images.append(ctc_utils.normalize(sample_img))
 
             sample_full_filepath = sample_fullpath + '.' + self.voc_type
-            sample_gt_file = open(sample_full_filepath, 'r')
+            try:
+                sample_gt_file = open(sample_full_filepath, 'r')
+            except FileNotFoundError:
+                logging.warning('Semantic file not found: ' + sample_full_filepath + ' (skipping sample)')
+                i = i - 1
+                self.current_idx = (self.current_idx + 1) % len( self.training_list )
+                continue
+            
             sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())
             sample_gt_file.close()
 
@@ -108,9 +116,7 @@ class CTC_PriMuS:
             # Read files
             for sample_filepath in self.validation_list:
                 sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
-    
-                # IMAGE
-                sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)  # Grayscale is assumed!
+                sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
                 assert len(sample_img.shape) == 2
                 height = params['img_height']
                 sample_img = ctc_utils.resize(sample_img,height)

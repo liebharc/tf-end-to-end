@@ -46,7 +46,7 @@ def predict(image_path, model_path, voc_file):
     assert image.shape[3] == 1
 
     seq_lengths = [ image.shape[2] / WIDTH_REDUCTION ]
-
+    
     prediction = sess.run(decoded,
                         feed_dict={
                             input: image,

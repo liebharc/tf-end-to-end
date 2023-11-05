@@ -14,6 +14,11 @@ MAX_EPOCHS = 64000
 DROPOUT = 0.5
 CONFIG_PATH = os.path.join(os.getcwd(),'config.json')
 
+if tf.test.is_gpu_available():
+    print("GPU is available")
+else:
+    print("GPU is not available")
+
 # Calculate the sample error rate (SER) of the model
 def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
     validation_batch, validation_size = primus.getValidation(params)
@@ -84,15 +89,15 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
 
     # Training loop
     for epoch in range(MAX_EPOCHS):
+        
         batch = primus.nextBatch(params)
-
         _, loss_value = sess.run([train_opt, loss],
                                 feed_dict={
                                     inputs: batch['inputs'],
                                     seq_len: batch['seq_lengths'],
                                     targets: ctc_utils.sparse_tuple_from(batch['targets']),
                                     rnn_keep_prob: DROPOUT,
-                                })
+                                }) 
 
         if epoch % SAVE_PERIOD == 0:
             # Validate
@@ -103,8 +108,9 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
                 logging.info('[Epoch ' + str(epoch) + '] ' + str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')    
             
             # Save model
-            saver.save(sess,model_path,global_step=epoch)
-            logging.info('Model saved to ' + model_path, )
+            mdl_path = model_path + "-" +str(epoch)
+            saver.save(sess,mdl_path,global_step=epoch)
+            logging.info('Model saved to ' + mdl_path)
 
 if __name__ == '__main__':
     configured_defaults = json.load(open(CONFIG_PATH))
