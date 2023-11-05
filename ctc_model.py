@@ -9,11 +9,11 @@ def leaky_relu(features, alpha=0.2, name=None):
     return math_ops.maximum(alpha * features, features)
 
 # Returns default model parameters
-def default_model_params(img_height, vocabulary_size):
+def default_model_params(img_height, vocabulary_size, batch_size=16):
     params = dict()
     params['img_height'] = img_height
     params['img_width'] = None
-    params['batch_size'] = 1
+    params['batch_size'] = batch_size
     params['img_channels'] = 1
     params['conv_blocks'] = 4
     params['conv_filter_n'] = [32, 64, 128, 256]

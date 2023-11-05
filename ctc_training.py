@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import argparse
 import logging
 import json
@@ -8,16 +9,11 @@ from primus import CTC_PriMuS
 import ctc_utils
 import ctc_model
 
-SAVE_PERIOD = 1000
+SAVE_PERIOD = 10
 IMG_HEIGHT = 128
-MAX_EPOCHS = 64000
+MAX_EPOCHS = 1000
 DROPOUT = 0.5
 CONFIG_PATH = os.path.join(os.getcwd(),'config.json')
-
-if tf.test.is_gpu_available():
-    print("GPU is available")
-else:
-    print("GPU is not available")
 
 # Calculate the sample error rate (SER) of the model
 def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
@@ -78,7 +74,8 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
     primus = CTC_PriMuS(corpus_path,set_path,voc_path, voc_type, val_split = 0.1)
 
     # Model parameters
-    params = ctc_model.default_model_params(IMG_HEIGHT,primus.vocabulary_size)
+    # Optimize batch size to match physical gpu memory !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    params = ctc_model.default_model_params(IMG_HEIGHT,primus.vocabulary_size,batch_size=16)
 
     # Model
     inputs, seq_len, targets, decoded, loss, rnn_keep_prob = ctc_model.ctc_crnn(params)
@@ -87,17 +84,30 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
     saver = tf.compat.v1.train.Saver(max_to_keep=None)
     sess.run(tf.compat.v1.global_variables_initializer())
 
+    batches = int(np.ceil(primus.fold_size / params['batch_size']))
+    logging.info('Training with ' + str(batches) + ' batches per fold.\nTraining with ' + str(primus.folds) + ' folds.')
+
     # Training loop
     for epoch in range(MAX_EPOCHS):
-        
-        batch = primus.nextBatch(params)
-        _, loss_value = sess.run([train_opt, loss],
-                                feed_dict={
-                                    inputs: batch['inputs'],
-                                    seq_len: batch['seq_lengths'],
-                                    targets: ctc_utils.sparse_tuple_from(batch['targets']),
-                                    rnn_keep_prob: DROPOUT,
-                                }) 
+        for(fold_idx) in range(primus.folds + 1):
+            for(batch_idx) in range(batches):
+                # Read in the training data
+                batch = primus.get_batch(params, fold_idx, batch_idx)
+                try:
+                    _, loss_value = sess.run([train_opt, loss],
+                                            feed_dict={
+                                                inputs: batch['inputs'],
+                                                seq_len: batch['seq_lengths'],
+                                                targets: ctc_utils.sparse_tuple_from(batch['targets']),
+                                                rnn_keep_prob: DROPOUT,
+                                            })
+                except:
+                    logging.error('Failed to train on batch ' + str(batch_idx) + ' of fold ' + str(fold_idx))
+                    logging.info('Batch size: ' + str(len(batch['inputs'])))
+                    logging.info('Sequence lengths: ' + str(batch['seq_lengths']))
+                    logging.info('Targets: ' + str(batch['targets']))
+
+                    continue
 
         if epoch % SAVE_PERIOD == 0:
             # Validate
@@ -111,6 +121,11 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
             mdl_path = model_path + "-" +str(epoch)
             saver.save(sess,mdl_path,global_step=epoch)
             logging.info('Model saved to ' + mdl_path)
+    
+    # Save final model
+    mdl_path = model_path + "-final"
+    saver.save(sess,mdl_path)
+    logging.info('Model saved to ' + mdl_path)
 
 if __name__ == '__main__':
     configured_defaults = json.load(open(CONFIG_PATH))

@@ -9,6 +9,8 @@ class CTC_PriMuS:
     PAD_COLUMN = 0
     validation_dict = None
 
+    FOLD_COEFFICIENT = 1 / 10000
+
 
     def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, distortions = False, val_split = 0.0):
         self.voc_type = voc_type
@@ -20,7 +22,7 @@ class CTC_PriMuS:
         corpus_list = corpus_file.read().splitlines()
         corpus_file.close()
 
-        self.current_idx = 0
+        self.fold_idx = -1
 
         # Dictionary
         self.word2int = {}
@@ -44,16 +46,26 @@ class CTC_PriMuS:
         val_idx = int(len(corpus_list) * val_split) 
         self.training_list = corpus_list[val_idx:]
         self.validation_list = corpus_list[:val_idx]
-        
-        print ('Training with ' + str(len(self.training_list)) + ' and validating with ' + str(len(self.validation_list)))
 
-    def nextBatch(self, params):
+        # Split the training set into folds to account for limmited main-memory
+        samples = len(self.training_list)
+        self.folds = samples * self.FOLD_COEFFICIENT
+        self.fold_size = samples // self.folds
+        
+        
+        logging.info ('Training with ' + str(len(self.training_list)) + ' and validating with ' + str(len(self.validation_list)))
+
+    def readImages(self, params, fold_idx):
         images = []
         labels = []
 
-        # Read files
-        for i in range(params['batch_size']):
-            sample_filepath = self.training_list[self.current_idx]
+        # This fold is already in buffer
+        if self.fold_idx == fold_idx:
+            return
+
+        # Read the fold into the buffer
+        for sample in range(self.fold_size):
+            sample_filepath = self.training_list[sample + fold_idx * self.fold_size]
             sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
 
             if self.distortions:
@@ -71,8 +83,6 @@ class CTC_PriMuS:
                 sample_gt_file = open(sample_full_filepath, 'r')
             except FileNotFoundError:
                 logging.warning('Semantic file not found: ' + sample_full_filepath + ' (skipping sample)')
-                i = i - 1
-                self.current_idx = (self.current_idx + 1) % len( self.training_list )
                 continue
             
             sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())
@@ -80,8 +90,23 @@ class CTC_PriMuS:
 
             labels.append([self.word2int[lab] for lab in sample_gt_plain])
 
-            self.current_idx = (self.current_idx + 1) % len( self.training_list )
+        self.images = images
+        self.labels = labels
+        self.fold_idx = fold_idx
 
+    def get_batch(self, params,fold_idx, batch_idx):
+        if fold_idx > self.folds:
+            raise Exception('Invalid fold index')
+
+        self.readImages(params,fold_idx)
+
+        batch_start_idx = batch_idx * params['batch_size']
+        batch_end_idx = (batch_idx + 1) * params['batch_size']
+        if batch_end_idx > self.fold_size:
+            batch_end_idx = self.fold_size
+        
+        images = self.images[batch_start_idx:batch_end_idx]
+        labels = self.labels[batch_start_idx:batch_end_idx]
 
         # Transform to batch
         image_widths = [img.shape[1] for img in images]
