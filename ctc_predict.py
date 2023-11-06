@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Decode a music score image with a trained model (CTC).')
     parser.add_argument('-image',  dest='image', type=str, required=True, help='Path to the input image.')
     parser.add_argument('-model', dest='model', type=str, required=True, help='Path to the trained model.')
-    parser.add_argument('-vocabulary', dest='vo c_file', type=str, required=True, help='Path to the vocabulary file.')
+    parser.add_argument('-vocabulary', dest='voc_file', type=str, required=True, help='Path to the vocabulary file.')
     args = parser.parse_args()
     
     print(predict(args.image, args.model, args.voc_file))

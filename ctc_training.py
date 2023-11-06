@@ -9,9 +9,9 @@ from primus import CTC_PriMuS
 import ctc_utils
 import ctc_model
 
-SAVE_PERIOD = 10
+SAVE_PERIOD = 1
 IMG_HEIGHT = 128
-MAX_EPOCHS = 1000
+MAX_EPOCHS = 100
 DROPOUT = 0.5
 CONFIG_PATH = os.path.join(os.getcwd(),'config.json')
 
@@ -50,7 +50,7 @@ def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
     return val_ed, val_len, val_count
     
 # Train the model with the given parameters and save it to model_path
-def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batches=False, verbose=False):   
+def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batches=False, verbose=False, weave_distortions_ratio=0.0):   
     if verbose:
         logging.basicConfig(
             level=logging.INFO,
@@ -71,10 +71,10 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
     sess = tf.compat.v1.InteractiveSession(config=config)
 
     # Load primus
-    primus = CTC_PriMuS(corpus_path,set_path,voc_path, voc_type, val_split = 0.1)
+    primus = CTC_PriMuS(corpus_path,set_path,voc_path, voc_type, val_split = 0.1, distortion_ratio = weave_distortions_ratio)
 
     # Model parameters
-    # Optimize batch size to match physical gpu memory !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # Optimize batch size to match physical gpu memory
     params = ctc_model.default_model_params(IMG_HEIGHT,primus.vocabulary_size,batch_size=16)
 
     # Model
@@ -85,11 +85,11 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
     sess.run(tf.compat.v1.global_variables_initializer())
 
     batches = int(np.ceil(primus.fold_size / params['batch_size']))
-    logging.info('Training with ' + str(batches) + ' batches per fold.\nTraining with ' + str(primus.folds) + ' folds.')
+    logging.info('Training with ' +str(params['batch_size']) +' samples per batch, ' + str(batches) + ' batches per fold. Training with ' + str(primus.folds) + ' folds.')
 
     # Training loop
     for epoch in range(MAX_EPOCHS):
-        for(fold_idx) in range(primus.folds + 1):
+        for(fold_idx) in range(primus.folds):
             for(batch_idx) in range(batches):
                 # Read in the training data
                 batch = primus.get_batch(params, fold_idx, batch_idx)
@@ -108,11 +108,11 @@ def train(corpus_path, set_path, voc_path, voc_type, model_path, validate_batche
                     logging.info('Targets: ' + str(batch['targets']))
 
                     continue
+            logging.info('Loss value at epoch ' + str(epoch) +', fold' +str(fold_idx) + ':' + str(loss_value))
+        primus.distortion_phase = (primus.distortion_phase + 1) % int(1 / primus.distortion_ratio)
 
         if epoch % SAVE_PERIOD == 0:
             # Validate
-            logging.info('Loss value at epoch ' + str(epoch) + ':' + str(loss_value))
-            
             if validate_batches:
                 val_ed, val_len, val_count = validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded)
                 logging.info('[Epoch ' + str(epoch) + '] ' + str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')    
@@ -138,6 +138,7 @@ if __name__ == '__main__':
     parser.add_argument('-voc_type', dest='voc_type', required=False, default=configured_defaults['voc_type'], choices=['semantic','agnostic'], help='Vocabulary type.')
     parser.add_argument('-validate_batches', dest='validate_batches', action="store_true", default=False, required=False)
     parser.add_argument('-verbose', dest='verbose', action="store_true", default=False, required=False)
+    parser.add_argument('-weave-distortions-ratio', dest='weave_distortions_ratio', type=float, required=False, default=0.0, help='Ratio of distortioned images used for training.')
     args = parser.parse_args()
 
-    train(args.corpus, args.set, args.voc, args.voc_type, args.save_model, args.validate_batches, args.verbose)
+    train(args.corpus, args.set, args.voc, args.voc_type, args.save_model, args.validate_batches, args.verbose, args.weave_distortions_ratio)

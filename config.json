@@ -1,6 +1,6 @@
 {
-    "corpus_path":"P:/project/primus_data",
-    "model_path": "P:/project/models/modelv1",
+    "corpus_path":"P:/project/datasets/CameraPrIMuS/Corpus",
+    "model_path": "P:/project/models/Camera-PrIMuS_hybrid_semantic_v1",
     "voc_path": "P:/project/tf-end-to-end/Data/vocabulary_semantic.txt",
     "voc_type": "semantic",
     "set_path": "P:/project/tf-end-to-end/Data/train.txt"

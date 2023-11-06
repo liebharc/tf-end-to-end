@@ -24,6 +24,7 @@ def default_model_params(img_height, vocabulary_size, batch_size=16):
     params['vocabulary_size'] = vocabulary_size
     return params
 
+
 def ctc_crnn(params):
     # TODO Assert parameters
     input = tf.compat.v1.placeholder(shape=(None,

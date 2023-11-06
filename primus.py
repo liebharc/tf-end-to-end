@@ -9,12 +9,11 @@ class CTC_PriMuS:
     PAD_COLUMN = 0
     validation_dict = None
 
-    FOLD_COEFFICIENT = 1 / 10000
+    FOLD_COEFFICIENT = 1 / 15000
 
 
-    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, distortions = False, val_split = 0.0):
+    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0):
         self.voc_type = voc_type
-        self.distortions = distortions
         self.corpus_dirpath = corpus_dirpath
 
         # Corpus
@@ -23,6 +22,8 @@ class CTC_PriMuS:
         corpus_file.close()
 
         self.fold_idx = -1
+        self.distortion_phase = 0
+        self.distortion_ratio = distortion_ratio
 
         # Dictionary
         self.word2int = {}
@@ -49,7 +50,7 @@ class CTC_PriMuS:
 
         # Split the training set into folds to account for limmited main-memory
         samples = len(self.training_list)
-        self.folds = samples * self.FOLD_COEFFICIENT
+        self.folds = int(np.ceil(samples * self.FOLD_COEFFICIENT))
         self.fold_size = samples // self.folds
         
         
@@ -62,17 +63,29 @@ class CTC_PriMuS:
         # This fold is already in buffer
         if self.fold_idx == fold_idx:
             return
-
+ 
+        self.images = None
+        self.labels = None
+        
         # Read the fold into the buffer
         for sample in range(self.fold_size):
             sample_filepath = self.training_list[sample + fold_idx * self.fold_size]
             sample_fullpath = self.corpus_dirpath + '/' + sample_filepath + '/' + sample_filepath
 
-            if self.distortions:
-                sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', cv2.IMREAD_GRAYSCALE)
+            if self.distortion_ratio > 0:
+                use_distorted = ((sample + self.distortion_phase)% (int(1 / self.distortion_ratio)) == 0)
             else:
-                sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
-            assert len(sample_img.shape) == 2
+                use_distorted = False
+
+            try:
+                if use_distorted:
+                    sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', cv2.IMREAD_GRAYSCALE)
+                else:
+                    sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
+                assert len(sample_img.shape) == 2
+            except FileNotFoundError:
+                logging.warning('Image file not found: ' + sample_fullpath + ' (skipping sample)')
+                continue
 
             height = params['img_height']
             sample_img = ctc_utils.resize(sample_img,height)
@@ -93,6 +106,7 @@ class CTC_PriMuS:
         self.images = images
         self.labels = labels
         self.fold_idx = fold_idx
+
 
     def get_batch(self, params,fold_idx, batch_idx):
         if fold_idx > self.folds:
@@ -178,7 +192,6 @@ class CTC_PriMuS:
                 'inputs': batch_images,
                 'seq_lengths': np.asarray(lengths),
                 'targets': labels,
-            }
-            
+            }            
         
         return self.validation_dict, len(self.validation_list)
