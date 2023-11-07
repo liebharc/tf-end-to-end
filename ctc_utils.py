@@ -135,13 +135,85 @@ def edit_distance(a,b,EOS=-1,PAD=-1):
 
     return levenshtein(_a,_b)
 
+def rotate(image, angle):
+    height, width = image.shape[:2]
+    image_center = (width/2, height/2)
+
+    rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
+
+    abs_cos = abs(rotation_mat[0,0])
+    abs_sin = abs(rotation_mat[0,1])
+
+    bound_w = int(height * abs_sin + width * abs_cos)
+    bound_h = int(height * abs_cos + width * abs_sin)
+
+    rotation_mat[0,2] += bound_w/2 - image_center[0]
+    rotation_mat[1,2] += bound_h/2 - image_center[1]
+
+    rotated_mat = cv2.warpAffine(image, rotation_mat, (bound_w, bound_h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+
+    return rotated_mat
+
+def strech(image, factor, axis=0):
+    height, width = image.shape[:2]
+    strech_mat = np.array([[1.,0.,0.],[0.,1.,0.]],dtype=np.float32)
+    strech_mat[axis,axis] = factor
+    streched_mat = cv2.warpAffine(image, strech_mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+    return streched_mat
+
+def scale(image, factor):
+    # resize the content but keep the aspect ratio
+    height, width = image.shape[:2]
+    if height > width:
+        height = int(height * factor)
+        width = int(width * factor)
+    else:
+        width = int(width * factor)
+        height = int(height * factor)
+    scaled_mat = cv2.resize(image, (width, height))
+    return scaled_mat
+
+def translate(image, factor, axis=0):
+    height, width = image.shape[:2]
+    translate_mat = np.array([[1.,0.,0.],[0.,1.,0.]],dtype=np.float32)
+    translate_mat[axis,2] = factor
+    translated_mat = cv2.warpAffine(image, translate_mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+    return translated_mat
+
+def blur(image, factor):
+    blur_factor = np.abs(int(factor)) + 1
+    blurred_mat = cv2.blur(image,(int(blur_factor),int(blur_factor)))
+    return blurred_mat
+
+def contrast_shift(image, factor):
+    contrast_mat = np.ones(image.shape, dtype="uint8") * int(factor)
+    contrasted_mat = cv2.subtract(image, contrast_mat)
+    return contrasted_mat
+
+def brightness_shift(image, factor):
+    brightness_mat = np.ones(image.shape, dtype="uint8") * int(factor)
+    brightened_mat = cv2.add(image, brightness_mat)
+    return brightened_mat
+
+def sharpen(image, factor):
+    sharpen_factor = np.abs(int(factor))
+    sharpen_mat = np.array([[-1,-1,-1],[-1,sharpen_factor,-1],[-1,-1,-1]],dtype=np.float32)
+    sharpened_mat = cv2.filter2D(image, -1, sharpen_mat)
+    return sharpened_mat
+
+def salt_pepper(image, factor):
+    salt_pepper_mat = np.zeros(image.shape, dtype="uint8")
+    salt_pepper_mat = cv2.randu(salt_pepper_mat,0,255)
+    salt_pepper_mat = salt_pepper_mat < factor
+    salt_pepper_mat = salt_pepper_mat.astype(np.uint8)
+    salt_pepper_mat = salt_pepper_mat * 255
+    salt_peppered_mat = cv2.add(image, salt_pepper_mat)
+    return salt_peppered_mat
 
 def normalize(image):
     return (255. - image)/255.
-
 
 def resize(image, height):
     width = int(float(height * image.shape[1]) / image.shape[0])
     sample_img = cv2.resize(image, (width, height))
     return sample_img
-

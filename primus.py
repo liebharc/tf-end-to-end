@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import ctc_utils
+import ctc_otfa
 import logging
 import random
 
@@ -12,7 +13,7 @@ class CTC_PriMuS:
     FOLD_COEFFICIENT = 1 / 15000
 
 
-    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0):
+    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0, use_otfa=False):
         self.voc_type = voc_type
         self.corpus_dirpath = corpus_dirpath
 
@@ -22,8 +23,12 @@ class CTC_PriMuS:
         corpus_file.close()
 
         self.fold_idx = -1
-        self.distortion_phase = 0
+        self.distortion_phase = 0 # Offset for the distorted images
         self.distortion_ratio = distortion_ratio
+        self.use_otfa = use_otfa
+
+        if self.use_otfa:
+            self.augmentations = ctc_otfa.read_augmentations()
 
         # Dictionary
         self.word2int = {}
@@ -56,7 +61,7 @@ class CTC_PriMuS:
         
         logging.info ('Training with ' + str(len(self.training_list)) + ' and validating with ' + str(len(self.validation_list)))
 
-    def readImages(self, params, fold_idx):
+    def read_images(self, params, fold_idx):
         images = []
         labels = []
 
@@ -79,7 +84,11 @@ class CTC_PriMuS:
 
             try:
                 if use_distorted:
-                    sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', cv2.IMREAD_GRAYSCALE)
+                    if self.use_otfa:
+                        sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
+                        sample_img = ctc_otfa.apply_augmentations(sample_img, self.augmentations)
+                    else:
+                        sample_img = cv2.imread(sample_fullpath + '_distorted.jpg', cv2.IMREAD_GRAYSCALE)
                 else:
                     sample_img = cv2.imread(sample_fullpath + '.png', cv2.IMREAD_GRAYSCALE)
                 assert len(sample_img.shape) == 2
