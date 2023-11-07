@@ -2,41 +2,46 @@
 {
     "type": "rotation",
     "distrobution": "gaussian",
-    "variance": "0.0"    
+    "variance": "8.0"    
 },
 {
     "type": "strech",
     "distrobution": "gaussian",
-    "variance": "0.0",
+    "variance": "0.15",
     "axis": "1"
 },
 {
     "type": "strech",
     "distrobution": "gaussian",
-    "variance": "0.0",
+    "variance": "0.15",
     "axis": "0"
 },
 {
     "type": "scale",
     "distrobution": "gaussian",
-    "variance": "0.0"
+    "variance": "0.15"
+},
+{
+    "type": "scale",
+    "distrobution": "gaussian",
+    "variance": "0.25"
 },
 {
     "type": "translate",
     "distrobution": "gaussian",
-    "variance": "0.0",
+    "variance": "15.0",
     "axis": "1"
 },
 {
     "type": "translate",
     "distrobution": "gaussian",
-    "variance": "0.0",
+    "variance": "15.0",
     "axis": "0"
 },
 {
     "type": "blur",
     "distrobution": "gaussian",
-    "variance": "0.0"
+    "variance": "3.0"
 },
 {
     "type": "contrast_shift",
@@ -55,6 +60,16 @@
 },
 {
     "type": "salt_pepper",
+    "distrobution": "gaussian",
+    "variance": "40.0"
+},
+{
+    "type": "salt_pepper",
+    "distrobution": "uniform",
+    "variance": "4.5"
+},
+{
+    "type": "radial_distortion",
     "distrobution": "gaussian",
     "variance": "0.0"
 }

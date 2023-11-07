@@ -10,6 +10,31 @@ import ctc_otfa
 
 AUGS_PATH = os.path.join(os.getcwd(),'otfa.json')
 
+SCALE_FACTOR_MIN = 0.5
+SCALE_FACTOR_MAX = 1.5
+
+ROT_ANGLE_MIN = -45
+ROT_ANGLE_MAX = 45
+
+BLUR_FACTOR_MIN = 0
+BLUR_FACTOR_MAX = 12
+
+CONTRAST_FACTOR_MIN = 0.0
+CONTRAST_FACTOR_MAX = 1.0
+
+BRIGHTNESS_FACTOR_MIN = 0.0
+BRIGHTNESS_FACTOR_MAX = 1.0
+
+SHARPEN_FACTOR_MIN = 0.0
+SHARPEN_FACTOR_MAX = 1.0
+
+TRANSLATION_OFFSET_MIN = -0.2
+TRANSLATION_OFFSET_MAX = 0.2
+
+SALT_PEPPER_FACTOR_MIN = 0.0
+SALT_PEPPER_FACTOR_MAX = 0.1
+
+
 def read_augmentations(augmentations_path=AUGS_PATH):
     # read from the file path and return a list of augmentation objects
     with open(augmentations_path) as json_file:
@@ -36,6 +61,8 @@ def read_augmentations(augmentations_path=AUGS_PATH):
                 augmentations.append(ctc_otfa.sharpen(aug['variance'],aug['distrobution']))
             elif aug['type'] == 'salt_pepper':
                 augmentations.append(ctc_otfa.salt_pepper(aug['variance'],aug['distrobution']))
+            elif aug['type'] == 'radial_distortion':
+                augmentations.append(ctc_otfa.radial_distortion(aug['variance'],aug['distrobution']))
             else:
                 raise Exception('Invalid augmentation type \"' + aug['type'] + '\"')
             
@@ -54,23 +81,34 @@ if __name__ == '__main__':
     ap.add_argument("-o", "--output-path", required=False, help="Path to output image")
     args = vars(ap.parse_args())
 
-    augmentations = read_augmentations()
-    for aug in augmentations:
-        print(str(aug) + ' '), 
+    while True:
+        augmentations = read_augmentations()
+        for aug in augmentations:
+            print(str(aug) + ' '), 
 
-    image = cv2.imread(args["image_path"], cv2.IMREAD_GRAYSCALE)
-    image = apply_augmentations(image, augmentations)
+        image = cv2.imread(args["image_path"], cv2.IMREAD_GRAYSCALE)
+        image = apply_augmentations(image, augmentations)
 
-    if args["output_path"] is not None:
-        cv2.imwrite(args["output_path"], image)
-    else:
-        cv2.imshow("Augmented", image)
-        cv2.waitKey(0)
+        if args["output_path"] is not None:
+            cv2.imwrite(args["output_path"], image)
+            break
+        else:
+            cv2.imshow("Augmented", image)
+            cv2.waitKey(0)
+
 
 class augmentation(ABC):
     def __init__(self, type, distrobution, variance):
         self.type = str(type)
-        self.distrobution = distrobution
+        
+        if distrobution == 'normal' or distrobution == 'gaussian':
+            self.distrobution = np.random.normal
+        elif distrobution == 'uniform':
+            self.distrobution = np.random.uniform
+        elif isinstance(distrobution, np.random.Generator):
+            self.distrobution = distrobution
+        else:
+            raise Exception('Invalid distrobution type \"' + str(distrobution) + '\"')
         self.variance = float(variance)
 
     def __str__(self) -> str:
@@ -82,42 +120,47 @@ class augmentation(ABC):
 
 class rotation(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('rotation', np.random.normal, variance)
+        super().__init__('rotation', distrobution, variance)
 
     def augment(self, image):
         angle = self.distrobution(0, self.variance)
+        angle = np.clip(angle, ROT_ANGLE_MIN, ROT_ANGLE_MAX)
+
         return ctc_utils.rotate(image, angle)
     
 class strech(augmentation):
     def __init__(self, variance, axis, distrobution = np.random.normal):
-        super().__init__('strech', np.random.normal, variance)
-        self.axis = axis
+        super().__init__('strech', distrobution, variance)
+        self.axis = int(axis)
 
     def augment(self, image):
-        strech_factor = self.distrobution(0, self.variance)
-        return ctc_utils.strech(image, strech_factor)
+        strech_factor = self.distrobution(1.0, self.variance)
+        strech_factor = np.clip(strech_factor, SCALE_FACTOR_MIN, SCALE_FACTOR_MAX)
+
+        return ctc_utils.strech(image, strech_factor, self.axis)
 
 class scale(augmentation):
-    def __init__(self, variance, axis, distrobution = np.random.normal):
-        super().__init__('scale', np.random.normal, variance)
-        self.axis = axis
+    def __init__(self, variance, distrobution = np.random.normal):
+        super().__init__('scale', distrobution, variance)
 
     def augment(self, image):
-        scale_factor = self.distrobution(0, self.variance)
+        scale_factor = self.distrobution(1.0, self.variance)
+        scale_factor = np.clip(scale_factor, SCALE_FACTOR_MIN, SCALE_FACTOR_MAX)
+
         return ctc_utils.scale(image, scale_factor)
     
 class translate(augmentation):
     def __init__(self, variance, axis, distrobution = np.random.normal):
-        super().__init__('translate', np.random.normal, variance)
-        self.axis = axis
+        super().__init__('translate', distrobution, variance)
+        self.axis = int(axis)
 
     def augment(self, image):
         translate_factor = self.distrobution(0, self.variance)
-        return ctc_utils.translate(image, translate_factor)
+        return ctc_utils.translate(image, translate_factor, self.axis)
     
 class blur(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('blur', np.random.normal, variance)
+        super().__init__('blur', distrobution, variance)
 
     def augment(self, image):
         blur_factor = self.distrobution(0, self.variance)
@@ -125,7 +168,7 @@ class blur(augmentation):
 
 class contrast_shift(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('contrast_shift', np.random.normal, variance)
+        super().__init__('contrast_shift', distrobution, variance)
 
     def augment(self, image):
         contrast_factor = self.distrobution(0, self.variance)
@@ -133,7 +176,7 @@ class contrast_shift(augmentation):
     
 class brightness_shift(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('brightness_shift', np.random.normal, variance)
+        super().__init__('brightness_shift', distrobution, variance)
 
     def augment(self, image):
         brightness_factor = self.distrobution(0, self.variance)
@@ -141,7 +184,7 @@ class brightness_shift(augmentation):
     
 class sharpen(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('sharpen', np.random.normal, variance)
+        super().__init__('sharpen', distrobution, variance)
 
     def augment(self, image):
         sharpen_factor = self.distrobution(0, self.variance)
@@ -149,8 +192,30 @@ class sharpen(augmentation):
     
 class salt_pepper(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
-        super().__init__('salt_pepper', np.random.normal, variance)
+        super().__init__('salt_pepper', distrobution, variance)
 
     def augment(self, image):
         salt_pepper_factor = self.distrobution(0, self.variance)
-        return ctc_utils.salt_pepper(image, salt_pepper_factor)
+        np.clip(salt_pepper_factor, SALT_PEPPER_FACTOR_MIN, SALT_PEPPER_FACTOR_MAX)
+
+        salt_pepper_mat = np.zeros(image.shape, dtype="uint8")
+        if self.distrobution == np.random.normal:
+            salt_pepper_mat = cv2.randn(salt_pepper_mat,0,self.variance)
+            salt_pepper_mat = cv2.add(image, salt_pepper_mat)
+        elif self.distrobution == np.random.uniform: #variance doesn't matter for uniform
+            salt_pepper_mat = cv2.randu(salt_pepper_mat,0,255)
+            salt_pepper_mat = salt_pepper_mat < self.variance
+            salt_pepper_mat = salt_pepper_mat.astype(np.uint8)
+            salt_pepper_mat = salt_pepper_mat * 255
+            salt_pepper_mat = cv2.add(image, salt_pepper_mat)
+        else:
+            raise Exception('Invalid distrobution type \"' + str(self.distrobution) + '\"')       
+
+        return salt_pepper_mat
+    
+class radial_distortion(augmentation):
+    def __init__(self, variance, distrobution):
+        super().__init__("radial_distortion", distrobution, variance)
+
+    def augment(self, image):
+        pass

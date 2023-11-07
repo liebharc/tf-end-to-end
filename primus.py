@@ -121,7 +121,7 @@ class CTC_PriMuS:
         if fold_idx > self.folds:
             raise Exception('Invalid fold index')
 
-        self.readImages(params,fold_idx)
+        self.read_images(params,fold_idx)
 
         batch_start_idx = batch_idx * params['batch_size']
         batch_end_idx = (batch_idx + 1) * params['batch_size']

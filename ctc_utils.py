@@ -154,26 +154,45 @@ def rotate(image, angle):
 
     return rotated_mat
 
-def strech(image, factor, axis=0):
+def strech(image, factor, axis):
     height, width = image.shape[:2]
+    if axis == 0:
+        new_height = height
+        new_width = int(width * factor)
+    else:
+        new_height = int(height * factor)
+        new_width = width
+    
     strech_mat = np.array([[1.,0.,0.],[0.,1.,0.]],dtype=np.float32)
     strech_mat[axis,axis] = factor
-    streched_mat = cv2.warpAffine(image, strech_mat, (width, height), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+    streched_mat = cv2.warpAffine(image, strech_mat, (new_width, new_height), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+
+
     return streched_mat
-
-def scale(image, factor):
-    # resize the content but keep the aspect ratio
+    
+def scale(image, factor):    
     height, width = image.shape[:2]
-    if height > width:
-        height = int(height * factor)
-        width = int(width * factor)
-    else:
-        width = int(width * factor)
-        height = int(height * factor)
-    scaled_mat = cv2.resize(image, (width, height))
-    return scaled_mat
 
-def translate(image, factor, axis=0):
+    # Calculate the new dimensions while retaining the same size
+    new_height = int(height * factor)
+    new_width = int(width * factor)
+    
+    # Resize the image using OpenCV
+    resized_array = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+
+    # Calculate the padding to retain the original size
+    top_pad = (height - new_height) // 2
+    left_pad = (width - new_width) // 2
+
+    if factor < 1.0:
+        output_array = np.full_like(image, 255)
+        output_array[top_pad:top_pad + new_height, left_pad:left_pad + new_width] = resized_array
+    else:
+        output_array = resized_array
+        
+    return output_array
+
+def translate(image, factor, axis):
     height, width = image.shape[:2]
     translate_mat = np.array([[1.,0.,0.],[0.,1.,0.]],dtype=np.float32)
     translate_mat[axis,2] = factor
@@ -201,7 +220,7 @@ def sharpen(image, factor):
     sharpened_mat = cv2.filter2D(image, -1, sharpen_mat)
     return sharpened_mat
 
-def salt_pepper(image, factor):
+def salt_pepper(image, factor,):
     salt_pepper_mat = np.zeros(image.shape, dtype="uint8")
     salt_pepper_mat = cv2.randu(salt_pepper_mat,0,255)
     salt_pepper_mat = salt_pepper_mat < factor
@@ -212,6 +231,9 @@ def salt_pepper(image, factor):
 
 def normalize(image):
     return (255. - image)/255.
+
+def denormalize(image):
+    return (255. - image)*255.
 
 def resize(image, height):
     width = int(float(height * image.shape[1]) / image.shape[0])
