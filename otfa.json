@@ -1,0 +1,61 @@
+[
+{
+    "type": "rotation",
+    "distrobution": "gaussian",
+    "variance": "0.0"    
+},
+{
+    "type": "strech",
+    "distrobution": "gaussian",
+    "variance": "0.0",
+    "axis": "1"
+},
+{
+    "type": "strech",
+    "distrobution": "gaussian",
+    "variance": "0.0",
+    "axis": "0"
+},
+{
+    "type": "scale",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+},
+{
+    "type": "translate",
+    "distrobution": "gaussian",
+    "variance": "0.0",
+    "axis": "1"
+},
+{
+    "type": "translate",
+    "distrobution": "gaussian",
+    "variance": "0.0",
+    "axis": "0"
+},
+{
+    "type": "blur",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+},
+{
+    "type": "contrast_shift",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+},
+{
+    "type": "brightness_shift",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+},
+{
+    "type": "sharpen",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+},
+{
+    "type": "salt_pepper",
+    "distrobution": "gaussian",
+    "variance": "0.0"
+}
+]
