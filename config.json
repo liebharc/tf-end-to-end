@@ -1,7 +1,12 @@
 {
     "corpus_path":"P:/project/datasets/CameraPrIMuS/Corpus",
-    "model_path": "P:/project/models/otfa-v1",
+    "model_path": "P:/project/models/otfa-v3",
+    "log_path": "P:/project/logs/otfa-v3.txt",
     "voc_path": "P:/project/tf-end-to-end/Data/vocabulary_semantic.txt",
     "voc_type": "semantic",
-    "set_path": "P:/project/tf-end-to-end/Data/train.txt"
+    "val_split": 0.1,
+    "set_path": "P:/project/tf-end-to-end/Data/train.txt",
+    "train_set_path": "P:/project/tf-end-to-end/Data/models/otfa-v3-train.txt",
+    "test_set_path": "P:/project/tf-end-to-end/Data/otfa-v3-test.txt",
+    "test_results_path": "P:/project/logs/test_results.txt"
 }

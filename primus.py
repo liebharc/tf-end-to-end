@@ -4,6 +4,7 @@ import ctc_utils
 import ctc_otfa
 import logging
 import random
+import os
 
 class CTC_PriMuS:
     gt_element_separator = '-'
@@ -13,14 +14,11 @@ class CTC_PriMuS:
     FOLD_COEFFICIENT = 1 / 15000
 
 
-    def __init__(self, corpus_dirpath, corpus_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0, use_otfa=False):
+    def __init__(self, corpus_dirpath, corpus_filepath, test_filepath, train_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0, use_otfa=False):
+        for path in [corpus_filepath, dictionary_path]: assert os.path.exists(path), 'File not found: ' + path
+        
         self.voc_type = voc_type
         self.corpus_dirpath = corpus_dirpath
-
-        # Corpus
-        corpus_file = open(corpus_filepath,'r')
-        corpus_list = corpus_file.read().splitlines()
-        corpus_file.close()
 
         self.fold_idx = -1
         self.distortion_phase = 0 # Offset for the distorted images
@@ -30,7 +28,7 @@ class CTC_PriMuS:
         if self.use_otfa:
             self.augmentations = ctc_otfa.read_augmentations()
 
-        # Dictionary
+        # Load the vocabulary and associate each word to an integer for encoding/decoding
         self.word2int = {}
         self.int2word = {}
             
@@ -45,21 +43,48 @@ class CTC_PriMuS:
         dict_file.close()
 
         self.vocabulary_size = len(self.word2int)
+
+        # Load/Save Training and Testing sets
+
+        self.test_filepath = test_filepath
+        self.train_filepath = train_filepath
         
-        
-        # Train and validation split
-        random.shuffle(corpus_list) 
-        val_idx = int(len(corpus_list) * val_split) 
-        self.training_list = corpus_list[val_idx:]
-        self.validation_list = corpus_list[:val_idx]
+        if os.path.exists(test_filepath) and os.path.exists(train_filepath):
+            logging.info('Loading sets from ' + test_filepath + ' and ' + train_filepath)
+            self.load_sets()
+        else:
+            corpus_file = open(corpus_filepath,'r')
+            corpus_list = corpus_file.read().splitlines()
+            corpus_file.close()
+            self.create_sets(corpus_list, val_split)
+            logging.info('Saving sets to ' + test_filepath + ' and ' + train_filepath)
+            self.save_sets()
 
         # Split the training set into folds to account for limmited main-memory
         samples = len(self.training_list)
         self.folds = int(np.ceil(samples * self.FOLD_COEFFICIENT))
         self.fold_size = samples // self.folds
         
-        
         logging.info ('Training with ' + str(len(self.training_list)) + ' and validating with ' + str(len(self.validation_list)))
+
+    def create_sets(self, corpus_list, val_split):
+        random.shuffle(corpus_list)
+        val_idx = int(len(corpus_list) * val_split)
+        self.training_list = corpus_list[val_idx:]
+        self.validation_list = corpus_list[:val_idx]
+
+    def save_sets(self):
+        with open(self.train_filepath,'w') as f:
+            for item in self.training_list:
+                f.write("%s\n" % item)
+        with open(self.test_filepath,'w') as f:
+            for item in self.validation_list:
+                f.write("%s\n" % item)
+    
+    def load_sets(self):
+        for path in [self.train_filepath, self.test_filepath]: assert os.path.exists(path), 'File not found: ' + path
+        self.training_list = open(self.train_filepath,'r').read().splitlines()
+        self.validation_list = open(self.test_filepath,'r').read().splitlines()
 
     def read_images(self, params, fold_idx):
         images = []

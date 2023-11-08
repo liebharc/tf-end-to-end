@@ -24,7 +24,7 @@
 {
     "type": "scale",
     "distrobution": "gaussian",
-    "variance": "0.25"
+    "variance": "0.10"
 },
 {
     "type": "translate",

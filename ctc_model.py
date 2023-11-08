@@ -1,4 +1,5 @@
 import tensorflow as tf
+import os
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
 
@@ -25,7 +26,7 @@ def default_model_params(img_height, vocabulary_size, batch_size=16):
     return params
 
 
-def ctc_crnn(params):
+def create_ctc_crnn(params):
     # TODO Assert parameters
     input = tf.compat.v1.placeholder(shape=(None,
                                    params['img_height'],
@@ -102,3 +103,40 @@ def ctc_crnn(params):
     decoded, log_prob = tf.compat.v1.nn.ctc_greedy_decoder(logits, seq_len)
 
     return input, seq_len, targets, decoded, loss, rnn_keep_prob
+
+def load_ctc_crnn(sess, model_path, voc_file):
+    dict_file = open(voc_file,'r')
+    dict_list = dict_file.read().splitlines()
+    int2word = dict()
+    for word in dict_list:
+        word_idx = len(int2word)
+        int2word[word_idx] = word
+    dict_file.close()
+
+    # Restore weights
+    saver = tf.compat.v1.train.import_meta_graph(model_path)
+    
+    for path in [model_path, voc_file]: assert os.path.exists(path), 'File does not exist: ' + path
+    assert model_path.endswith('.meta'), 'Not a meta file: ' + model_path
+
+    saver.restore(sess,model_path[:-5])
+
+    graph = tf.compat.v1.get_default_graph()
+
+    input = graph.get_tensor_by_name("model_input:0")
+    seq_len = graph.get_tensor_by_name("seq_lengths:0")
+    targets = graph.get_tensor_by_name("target:0")
+    rnn_keep_prob = graph.get_tensor_by_name("keep_prob:0")
+    height_tensor = graph.get_tensor_by_name("input_height:0")
+    width_reduction_tensor = graph.get_tensor_by_name("width_reduction:0")
+    logits = tf.compat.v1.get_collection("logits")[0]
+
+    # Constants that are saved inside the model itself
+    width_reduction, height = sess.run([width_reduction_tensor, height_tensor])
+
+    ctc_loss = tf.compat.v1.nn.ctc_loss(labels=targets, inputs=logits, sequence_length=seq_len, time_major=True)
+    loss = tf.compat.v1.reduce_mean(ctc_loss)
+
+    decoded, _ = tf.compat.v1.nn.ctc_greedy_decoder(logits, seq_len)
+
+    return input, seq_len, decoded, loss, rnn_keep_prob, width_reduction, height, int2word
