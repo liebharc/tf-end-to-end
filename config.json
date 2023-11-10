@@ -6,7 +6,7 @@
     "voc_path": "P:/project/tf-end-to-end/Data/vocabulary_semantic.txt",
     "voc_type": "semantic",
     "val_split": 0.1,
-    "dataset_path": "P:/project/python_datasets/kv1-dataset",
+    "dataset_path": "P:/project/python_datasets/kv2-dataset",
     "model_params_path": "P:/project/tf-end-to-end/model-params.json",
     "otfa_params": "P:/project/tf-end-to-end/otfa.json",
     "test_results_path": "P:/project/logs/test_results.txt"

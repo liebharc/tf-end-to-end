@@ -1,8 +1,8 @@
 [
 {
-"type": "distortion",
-"distrobution": "gaussian",
-"variance": "0.0001"
+    "type": "distortion",
+    "distrobution": "gaussian",
+    "variance": "0.0001"
 },
 {
     "type": "rotation",
