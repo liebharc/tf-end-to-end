@@ -31,8 +31,8 @@ def test(corpus_path, set_path, test_path, train_path, voc_path, voc_type, model
     
     logging.info('---Testing model ' + model_path + '---')
     
-    primus = primus.CTC_PriMuS(corpus_path, set_path, test_path, train_path, voc_path, voc_type)
-    inputs, seq_len, decoded, loss, rnn_keep_prob, width_reduction, height, int2word = ctc_model.load_ctc_crnn(model_path, voc_path)
+    primus = CTC_PriMuS(corpus_path, set_path, test_path, train_path, voc_path, voc_type)
+    sess, inputs, seq_len, decoded, loss, rnn_keep_prob, width_reduction, height, int2word = ctc_model.load_ctc_crnn(model_path, voc_path)
     params = ctc_model.default_model_params(IMG_HEIGHT,primus.vocabulary_size,batch_size=BATCH_SIZE)
     
     # Set up TF session and initialize variables
@@ -43,19 +43,24 @@ def test(corpus_path, set_path, test_path, train_path, voc_path, voc_type, model
 
     logging.info('Validation set: ' + str(val_ed) + ' errors in ' + str(val_len) + ' characters (' + str(val_count) + ' samples)')
     logging.info('Validation set: ' + str(val_ed/val_len) + ' CER')
-    logging.info(str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')  
+    logging.info(str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')
+    logging.info('---End of testing---')
 
 if __name__ == '__main__':
     configured_defaults = json.load(open(config.CONFIG_PATH,'r'))
 
     parser = argparse.ArgumentParser(description='Train model.')
-    parser.add_argument('-corpus', dest='corpus', type=str, required=False, help='Path to the corpus.', default=configured_defaults['corpus_path'])
+    parser.add_argument('-corpus', dest='corpus', type=str, required=False, help='Path to the corpus directory', default=configured_defaults['corpus_path'])
     parser.add_argument('-save_model', dest='save_model', type=str, required=False, help='Path to save the model.', default=configured_defaults['model_path'])
     parser.add_argument('-vocabulary', dest='voc', type=str, required=False, help='Path to the vocabulary file.', default=configured_defaults['voc_path'])
     parser.add_argument('-voc_type', dest='voc_type', required=False, default=configured_defaults['voc_type'], choices=['semantic','agnostic'], help='Vocabulary type.')
     parser.add_argument('-verbose', dest='verbose', action="store_true", default=False, required=False)
     parser.add_argument('-log-file', dest='log_file', type=str, required=False, default=configured_defaults['test_results_path'], help='Path to the log file.')
+    parser.add_argument('-corpus-set', dest='corpus_set', type=str, required=False, default=configured_defaults['set_path'], help='Path to the corpus set file.')
     parser.add_argument('-test-set', dest='test_set', type=str, required=False, default=configured_defaults['test_set_path'], help='Path to the test set file.')
     parser.add_argument('-train-set' , dest='train_set', type=str, required=False, default=configured_defaults['train_set_path'], help='Path to the train set file.')
+    parser.add_argument("-save-predictions", dest='save_predictions', action="store_true", default=False, required=False, help='Save predictions to a file.')
     args = parser.parse_args()
+
+    test(args.corpus, args.corpus_set, args.test_set, args.train_set, args.voc, args.voc_type, args.save_model, args.verbose, args.log_file)
 

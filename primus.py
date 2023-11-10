@@ -5,17 +5,20 @@ import ctc_otfa
 import logging
 import random
 import os
+from tensorflow import keras
 
-class CTC_PriMuS:
+class CTC_PriMuS(keras.utils.PyDataset):
     gt_element_separator = '-'
     PAD_COLUMN = 0
     validation_dict = None
 
     FOLD_COEFFICIENT = 1 / 15000
 
-
-    def __init__(self, corpus_dirpath, corpus_filepath, test_filepath, train_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0, use_otfa=False):
-        for path in [corpus_filepath, dictionary_path]: assert os.path.exists(path), 'File not found: ' + path
+    def __init__(self, corpus_dirpath, test_filepath, train_filepath, dictionary_path, voc_type, val_split = 0.0, distortion_ratio = 0.0, use_otfa=False):
+        # Call the parent class constructor
+        super().__init__(corpus_dirpath)
+        
+        for path in [dictionary_path]: assert os.path.exists(path), 'File not found: ' + path
         
         self.voc_type = voc_type
         self.corpus_dirpath = corpus_dirpath
@@ -53,9 +56,8 @@ class CTC_PriMuS:
             logging.info('Loading sets from ' + test_filepath + ' and ' + train_filepath)
             self.load_sets()
         else:
-            corpus_file = open(corpus_filepath,'r')
-            corpus_list = corpus_file.read().splitlines()
-            corpus_file.close()
+            # Get all the directories in the corpus
+            corpus_list = os.listdir(corpus_dirpath)
             self.create_sets(corpus_list, val_split)
             logging.info('Saving sets to ' + test_filepath + ' and ' + train_filepath)
             self.save_sets()
@@ -65,7 +67,7 @@ class CTC_PriMuS:
         self.folds = int(np.ceil(samples * self.FOLD_COEFFICIENT))
         self.fold_size = samples // self.folds
         
-        logging.info ('Training with ' + str(len(self.training_list)) + ' and validating with ' + str(len(self.validation_list)))
+        logging.info ('Data set has ' + str(len(self.training_list)) + ' training samples ' + str(len(self.validation_list)) + ' testing samples')
 
     def create_sets(self, corpus_list, val_split):
         random.shuffle(corpus_list)
@@ -195,7 +197,7 @@ class CTC_PriMuS:
                 sample_img = ctc_utils.resize(sample_img,height)
                 images.append(ctc_utils.normalize(sample_img))
     
-                sample_full_filepath = sample_filepath + '.' + self.voc_type            
+                sample_full_filepath = sample_fullpath + '.' + self.voc_type            
                 sample_gt_file = open(sample_full_filepath, 'r')
             
                 sample_gt_plain = sample_gt_file.readline().rstrip().split(ctc_utils.word_separator())

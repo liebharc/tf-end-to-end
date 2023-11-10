@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 import cv2
 
 def convert_inputs_to_ctc_format(target_text):
@@ -22,6 +23,13 @@ def convert_inputs_to_ctc_format(target_text):
     train_targets = sparse_tuple_from([targets])
 
     return train_targets, original
+
+def ctc_loss(y_true, y_pred):
+    # y_true: True labels (integer sequences)
+    # y_pred: Predicted output from your model
+    # Calculate the CTC loss
+    loss = tf.nn.ctc_loss(y_true, y_pred, time_major=False)
+    return loss
 
 def sparse_tuple_from(sequences, dtype=np.int32):
     indices = []
@@ -204,6 +212,35 @@ def blur(image, factor):
     blurred_mat = cv2.blur(image,(int(blur_factor),int(blur_factor)))
     return blurred_mat
 
+# Too slow for otf augmentation
+def radial_distortion(image, k1, k2, center_x=None, center_y=None):
+    if center_x is None:
+        center_x = image.shape[1] / 2
+    if center_y is None:
+        center_y = image.shape[0] / 2
+
+    #make the distorted image the same size as the original
+    distorted_points = np.zeros_like(image)
+
+    for y in range(image.shape[0]):
+        for x in range(image.shape[1]):
+            r2 = (x - center_x) ** 2 + (y - center_y) ** 2
+            r2 = np.sqrt(r2)
+            distortion = k1 * r2 + k2 * r2 ** 2
+
+            x_distorted = int(x * distortion)
+            y_distorted = int(y * distortion)
+
+            new_x = int(x + (x_distorted))
+            new_y = int(y + (y_distorted))
+
+            if new_x >= 0 and new_x < image.shape[1] and new_y >= 0 and new_y < image.shape[0]:
+                distorted_points[y][x] = image[new_y][new_x]
+            else:
+                distorted_points[y][x] = 255
+
+    return np.array(distorted_points)
+
 def contrast_shift(image, factor):
     contrast_mat = np.ones(image.shape, dtype="uint8") * int(factor)
     contrasted_mat = cv2.subtract(image, contrast_mat)
@@ -228,6 +265,13 @@ def salt_pepper(image, factor,):
     salt_pepper_mat = salt_pepper_mat * 255
     salt_peppered_mat = cv2.add(image, salt_pepper_mat)
     return salt_peppered_mat
+
+
+#eliminate the white space around the image
+def crop(image):
+    #remove the 
+    return image
+
 
 def normalize(image):
     return (255. - image)/255.

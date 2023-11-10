@@ -12,7 +12,7 @@ import config
 
 SAVE_PERIOD = 1
 IMG_HEIGHT = 128
-BATCH_SIZE = 16
+BATCH_SIZE = 24
 MAX_EPOCHS = 100
 DROPOUT = 0.5
 
@@ -32,7 +32,6 @@ def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
             seq_len: validation_batch['seq_lengths'][val_idx:val_idx+params['batch_size']],
             rnn_keep_prob: 1.0            
         }
-                    
         
         prediction = sess.run(decoded,
                             mini_batch_feed_dict)
@@ -40,6 +39,22 @@ def validate(primus, params, sess, inputs, seq_len, rnn_keep_prob, decoded):
         str_predictions = ctc_utils.sparse_tensor_to_strs(prediction)
 
         for i in range(len(str_predictions)):
+            # Print the two as strings
+            prediction_str = ''
+            for w in str_predictions[i]:
+                prediction_str += (primus.int2word[w]) +'\t'
+            prediction_str = prediction_str[:-1]
+
+            actual_str = ''
+            for w in validation_batch['targets'][val_idx+i]:
+                actual_str += (primus.int2word[w]) +'\t'
+            actual_str = actual_str[:-1]
+
+            logging.info("SAMPLE " + str(primus.validation_list[val_idx+i]) )
+            logging.info('Actual: ' + actual_str)
+            logging.info('Prediction: ' + prediction_str)
+
+
             ed = ctc_utils.edit_distance(str_predictions[i], validation_batch['targets'][val_idx+i])
             val_ed = val_ed + ed
             val_len = val_len + len(validation_batch['targets'][val_idx+i])
@@ -69,7 +84,7 @@ def train(corpus_path, set_path, test_set, train_set, voc_path, voc_type, model_
     # Set up tensorflow 
     tf.compat.v1.disable_eager_execution()        
     config = tf.compat.v1.ConfigProto()
-    config.gpu_options.allow_growth=True
+    # config.gpu_options.allow_growth=True
     tf.compat.v1.reset_default_graph()
     sess = tf.compat.v1.InteractiveSession(config=config)
 
@@ -127,13 +142,13 @@ def train(corpus_path, set_path, test_set, train_set, voc_path, voc_type, model_
                 logging.info('[Epoch ' + str(epoch) + '] ' + str(1. * val_ed / val_count) + ' (' + str(100. * val_ed / val_len) + ' SER) from ' + str(val_count) + ' samples.')    
             
             # Save model
-            saver.save(sess,mdl_path,global_step=epoch)
-            logging.info('Model saved to ' + mdl_path)
+            saver.save(sess,model_path,global_step=epoch)
+            logging.info('Model saved to ' + model_path)
     
     # Save final model
-    mdl_path = model_path + "-final"
-    saver.save(sess,mdl_path)
-    logging.info('Model saved to ' + mdl_path)
+    model_path = model_path + "-final"
+    saver.save(sess,model_path)
+    logging.info('Model saved to ' + model_path)
 
 if __name__ == '__main__':
     configured_defaults = json.load(open(config.CONFIG_PATH,'r'))

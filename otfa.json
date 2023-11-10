@@ -1,5 +1,10 @@
 [
 {
+"type": "distortion",
+"distrobution": "gaussian",
+"variance": "0.0001"
+},
+{
     "type": "rotation",
     "distrobution": "gaussian",
     "variance": "8.0"    
@@ -7,41 +12,41 @@
 {
     "type": "strech",
     "distrobution": "gaussian",
-    "variance": "0.15",
+    "variance": "0.0",
     "axis": "1"
 },
 {
     "type": "strech",
     "distrobution": "gaussian",
-    "variance": "0.15",
+    "variance": "0.0",
     "axis": "0"
 },
 {
     "type": "scale",
     "distrobution": "gaussian",
-    "variance": "0.15"
+    "variance": "0.0"
 },
 {
     "type": "scale",
     "distrobution": "gaussian",
-    "variance": "0.10"
+    "variance": "0.0"
 },
 {
     "type": "translate",
     "distrobution": "gaussian",
-    "variance": "15.0",
+    "variance": "0.0",
     "axis": "1"
 },
 {
     "type": "translate",
     "distrobution": "gaussian",
-    "variance": "15.0",
+    "variance": "0.0",
     "axis": "0"
 },
 {
     "type": "blur",
     "distrobution": "gaussian",
-    "variance": "3.0"
+    "variance": "2.2"
 },
 {
     "type": "contrast_shift",

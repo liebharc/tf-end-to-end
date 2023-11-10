@@ -7,12 +7,7 @@ import numpy as np
 
 # Predict the semantic string of a music score image
 def predict(image_path, model_path, voc_file):
-    # Disable eager execution
-    tf.compat.v1.disable_eager_execution()
-    tf.compat.v1.reset_default_graph()
-    sess = tf.compat.v1.InteractiveSession()
-
-    input, seq_len, decoded, loss, rnn_keep_prob, width_reduction, height, int2word = ctc_model.load_ctc_crnn(sess, model_path, voc_file)
+    sess, input, seq_len, decoded, loss, rnn_keep_prob, width_reduction, height, int2word = ctc_model.load_ctc_crnn(sess, model_path, voc_file)
 
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     image = ctc_utils.resize(image, height)

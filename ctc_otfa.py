@@ -10,7 +10,7 @@ import ctc_otfa
 
 AUGS_PATH = os.path.join(os.getcwd(),'otfa.json')
 
-SCALE_FACTOR_MIN = 0.5
+SCALE_FACTOR_MIN = 0.4
 SCALE_FACTOR_MAX = 1.5
 
 ROT_ANGLE_MIN = -45
@@ -32,8 +32,10 @@ TRANSLATION_OFFSET_MIN = -0.2
 TRANSLATION_OFFSET_MAX = 0.2
 
 SALT_PEPPER_FACTOR_MIN = 0.0
-SALT_PEPPER_FACTOR_MAX = 0.1
+SALT_PEPPER_FACTOR_MAX = 0.0001
 
+RADIAL_DISTORTION_FACTOR_MAX = 0.000001
+RADIAL_DISTORTION_FACTOR_MIN = -RADIAL_DISTORTION_FACTOR_MAX
 
 def read_augmentations(augmentations_path=AUGS_PATH):
     # read from the file path and return a list of augmentation objects
@@ -63,6 +65,8 @@ def read_augmentations(augmentations_path=AUGS_PATH):
                 augmentations.append(ctc_otfa.salt_pepper(aug['variance'],aug['distrobution']))
             elif aug['type'] == 'radial_distortion':
                 augmentations.append(ctc_otfa.radial_distortion(aug['variance'],aug['distrobution']))
+            elif aug['type'] == 'distortion':
+                augmentations.append(ctc_otfa.distort(aug['variance'],aug['distrobution']))
             else:
                 raise Exception('Invalid augmentation type \"' + aug['type'] + '\"')
             
@@ -76,21 +80,21 @@ def apply_augmentations(image, augmentations):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument("-a", "--augmentations-path", required=False, default=AUGS_PATH, help="Path to augmentations json")
-    ap.add_argument("-i", "--image-path", required=True, help="Path to image")
-    ap.add_argument("-o", "--output-path", required=False, help="Path to output image")
-    args = vars(ap.parse_args())
+    ap.add_argument("-a", "--augmentations-path", dest="augmentations_path", required=False, default=AUGS_PATH, help="Path to augmentations json")
+    ap.add_argument("-i", "--image-path", dest="image_path", required=True, help="Path to image")
+    ap.add_argument("-o", "--output-path", dest="output_path", required=False, help="Path to output image")
+    args = ap.parse_args()
 
     while True:
-        augmentations = read_augmentations()
+        augmentations = read_augmentations(args.augmentations_path)
         for aug in augmentations:
             print(str(aug) + ' '), 
 
-        image = cv2.imread(args["image_path"], cv2.IMREAD_GRAYSCALE)
+        image = cv2.imread(args.image_path, cv2.IMREAD_GRAYSCALE)
         image = apply_augmentations(image, augmentations)
 
-        if args["output_path"] is not None:
-            cv2.imwrite(args["output_path"], image)
+        if args.output_path is not None:
+            cv2.imwrite(args.output_path, image)
             break
         else:
             cv2.imshow("Augmented", image)
@@ -119,12 +123,13 @@ class augmentation(ABC):
         pass
 
 class rotation(augmentation):
-    def __init__(self, variance, distrobution = np.random.normal):
+    def __init__(self, variance, distrobution = np.random.normal, min=0.0):
         super().__init__('rotation', distrobution, variance)
 
     def augment(self, image):
         angle = self.distrobution(0, self.variance)
         angle = np.clip(angle, ROT_ANGLE_MIN, ROT_ANGLE_MAX)
+        angle = angle + 1
 
         return ctc_utils.rotate(image, angle)
     
@@ -137,7 +142,9 @@ class strech(augmentation):
         strech_factor = self.distrobution(1.0, self.variance)
         strech_factor = np.clip(strech_factor, SCALE_FACTOR_MIN, SCALE_FACTOR_MAX)
 
-        return ctc_utils.strech(image, strech_factor, self.axis)
+        im = ctc_utils.strech(image, strech_factor, self.axis)
+
+        return im
 
 class scale(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
@@ -218,4 +225,42 @@ class radial_distortion(augmentation):
         super().__init__("radial_distortion", distrobution, variance)
 
     def augment(self, image):
-        pass
+        k1 = self.distrobution(0, self.variance)
+        k1 = np.clip(k1, RADIAL_DISTORTION_FACTOR_MIN, RADIAL_DISTORTION_FACTOR_MAX)
+        k2 = self.distrobution(0, self.variance)
+        k2 = np.clip(k2, RADIAL_DISTORTION_FACTOR_MIN, RADIAL_DISTORTION_FACTOR_MAX)
+
+        return ctc_utils.radial_distortion(image, k1, k2)
+
+class distort(augmentation):
+    def __init__(self, variance, distrobution):
+        super().__init__("distortion", distrobution, variance)
+    
+    def augment(self, image):
+        image = ctc_utils.scale(image, 0.5)
+        # Define the transformation matrix (m)
+        m = np.identity(3)
+        for i in range(3):
+            for j in range(3):
+                if i == 1 and j == 1:
+                    m[i][j] = 1
+                elif i == j:
+                    m[i][j] = 1 + self.distrobution(0, self.variance)
+                else:
+                    m[i][j] = self.distrobution(0, self.variance)
+
+        # Define the size of the output image (dsize)
+        output_size = (image.shape[1], image.shape[0])  # Keep the same size as the input
+        
+        # Do not allow the image to be distorted out of frame
+        m[0][2] = np.clip(m[0][2], -image.shape[1], image.shape[1])
+        m[1][2] = np.clip(m[1][2], -image.shape[0], image.shape[0])
+
+        # Apply the transformation matrix to the image
+        output_image = cv2.warpPerspective(image, m, output_size, borderValue=255)
+
+        # Crop the image to eliminate whike space
+        output_image = ctc_utils.crop(output_image)
+
+        return output_image
+    
