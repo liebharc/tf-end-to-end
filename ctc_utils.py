@@ -24,11 +24,9 @@ def convert_inputs_to_ctc_format(target_text):
 
     return train_targets, original
 
-def ctc_loss(y_true, y_pred):
-    # y_true: True labels (integer sequences)
-    # y_pred: Predicted output from your model
-    # Calculate the CTC loss
-    loss = tf.nn.ctc_loss(y_true, y_pred, time_major=False)
+def ctc_loss(labels, logits, labels_length, logits_length):
+    # y_true: Tr
+    loss = tf.nn.ctc_loss(labels, logits, labels_length, logits_length)
     return loss
 
 def sparse_tuple_from(sequences, dtype=np.int32):
@@ -143,24 +141,18 @@ def edit_distance(a,b,EOS=-1,PAD=-1):
 
     return levenshtein(_a,_b)
 
-def rotate(image, angle):
+def rotate(images, angle):
     height, width = image.shape[:2]
     image_center = (width/2, height/2)
-
     rotation_mat = cv2.getRotationMatrix2D(image_center, angle, 1.)
-
     abs_cos = abs(rotation_mat[0,0])
     abs_sin = abs(rotation_mat[0,1])
-
     bound_w = int(height * abs_sin + width * abs_cos)
     bound_h = int(height * abs_cos + width * abs_sin)
-
     rotation_mat[0,2] += bound_w/2 - image_center[0]
     rotation_mat[1,2] += bound_h/2 - image_center[1]
-
     rotated_mat = cv2.warpAffine(image, rotation_mat, (bound_w, bound_h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
-
-    return rotated_mat
+    outs.append(rotated_mat)
 
 def strech(image, factor, axis):
     height, width = image.shape[:2]
@@ -178,7 +170,8 @@ def strech(image, factor, axis):
 
     return streched_mat
     
-def scale(image, factor):    
+def scale(image, factor):
+    print(image)
     height, width = image.shape[:2]
 
     # Calculate the new dimensions while retaining the same size

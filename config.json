@@ -1,12 +1,13 @@
 {
-    "corpus_path":"P:/project/datasets/CameraPrIMuS/Corpus",
-    "model_path": "P:/project/models/kv1.keras",
+    "training_dataset_path": "P:/project/python_datasets/2-128_256_90_testing",
+    "testing_dataset_path": "P:/project/python_datasets/2-128_256_90_validation",
     "checkpoint_path": "P:/project/models/kv1-checkpoint.keras",
+    "model_path": "P:/project/models/kv1.keras",
     "log_path": "P:/project/logs/kv1.txt",
+    "corpus_path":"P:/project/datasets/CameraPrIMuS/Corpus",
     "voc_path": "P:/project/tf-end-to-end/Data/vocabulary_semantic.txt",
     "voc_type": "semantic",
     "val_split": 0.1,
-    "dataset_path": "P:/project/python_datasets/kv2-dataset",
     "model_params_path": "P:/project/tf-end-to-end/model-params.json",
     "otfa_params": "P:/project/tf-end-to-end/otfa.json",
     "test_results_path": "P:/project/logs/test_results.txt"

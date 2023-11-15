@@ -2,12 +2,12 @@
 {
     "type": "distortion",
     "distrobution": "gaussian",
-    "variance": "0.0001"
+    "variance": "0.0"
 },
 {
     "type": "rotation",
     "distrobution": "gaussian",
-    "variance": "8.0"    
+    "variance": "0.0"    
 },
 {
     "type": "strech",
@@ -46,17 +46,17 @@
 {
     "type": "blur",
     "distrobution": "gaussian",
-    "variance": "2.2"
+    "variance": "0.0"
 },
 {
     "type": "contrast_shift",
     "distrobution": "gaussian",
-    "variance": "0.0"
+    "variance": "0.15"
 },
 {
     "type": "brightness_shift",
     "distrobution": "gaussian",
-    "variance": "0.0"
+    "variance": "0.15"
 },
 {
     "type": "sharpen",
@@ -65,13 +65,8 @@
 },
 {
     "type": "salt_pepper",
-    "distrobution": "gaussian",
-    "variance": "40.0"
-},
-{
-    "type": "salt_pepper",
     "distrobution": "uniform",
-    "variance": "4.5"
+    "variance": "0.12"
 },
 {
     "type": "radial_distortion",

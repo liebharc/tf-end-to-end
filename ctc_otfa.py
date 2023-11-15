@@ -7,10 +7,11 @@ import os
 import json
 from abc import ABC, abstractmethod
 import ctc_otfa
+import tensorflow as tf
 
 AUGS_PATH = os.path.join(os.getcwd(),'otfa.json')
 
-SCALE_FACTOR_MIN = 0.4
+SCALE_FACTOR_MIN = 0.75
 SCALE_FACTOR_MAX = 1.5
 
 ROT_ANGLE_MIN = -45
@@ -22,8 +23,8 @@ BLUR_FACTOR_MAX = 12
 CONTRAST_FACTOR_MIN = 0.0
 CONTRAST_FACTOR_MAX = 1.0
 
-BRIGHTNESS_FACTOR_MIN = 0.0
-BRIGHTNESS_FACTOR_MAX = 1.0
+BRIGHTNESS_DELTA_MIN = -1.0
+BRIGHTNESS_DELTA_MAX = 1.0
 
 SHARPEN_FACTOR_MIN = 0.0
 SHARPEN_FACTOR_MAX = 1.0
@@ -32,7 +33,7 @@ TRANSLATION_OFFSET_MIN = -0.2
 TRANSLATION_OFFSET_MAX = 0.2
 
 SALT_PEPPER_FACTOR_MIN = 0.0
-SALT_PEPPER_FACTOR_MAX = 0.0001
+SALT_PEPPER_FACTOR_MAX = 1.0
 
 RADIAL_DISTORTION_FACTOR_MAX = 0.000001
 RADIAL_DISTORTION_FACTOR_MIN = -RADIAL_DISTORTION_FACTOR_MAX
@@ -118,6 +119,7 @@ class augmentation(ABC):
     def __str__(self) -> str:
         return 'AUGMENTATION: ' +self.type + ', ' + str(self.variance) + ', ' + str(self.distrobution)
 
+    # This function should take a tensor and return a tensor
     @abstractmethod
     def augment():
         pass
@@ -130,31 +132,25 @@ class rotation(augmentation):
         angle = self.distrobution(0, self.variance)
         angle = np.clip(angle, ROT_ANGLE_MIN, ROT_ANGLE_MAX)
         angle = angle + 1
-
-        return ctc_utils.rotate(image, angle)
+        
+        #convert to tensor
+        #return tf.numpy_function(ctc_utils.rotate, [image, angle], tf.float32)
     
+        pass 
 class strech(augmentation):
     def __init__(self, variance, axis, distrobution = np.random.normal):
         super().__init__('strech', distrobution, variance)
         self.axis = int(axis)
 
-    def augment(self, image):
-        strech_factor = self.distrobution(1.0, self.variance)
-        strech_factor = np.clip(strech_factor, SCALE_FACTOR_MIN, SCALE_FACTOR_MAX)
-
-        im = ctc_utils.strech(image, strech_factor, self.axis)
-
-        return im
+    def augment(self, image_tensor):
+        pass
 
 class scale(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('scale', distrobution, variance)
 
     def augment(self, image):
-        scale_factor = self.distrobution(1.0, self.variance)
-        scale_factor = np.clip(scale_factor, SCALE_FACTOR_MIN, SCALE_FACTOR_MAX)
-
-        return ctc_utils.scale(image, scale_factor)
+        pass
     
 class translate(augmentation):
     def __init__(self, variance, axis, distrobution = np.random.normal):
@@ -162,63 +158,74 @@ class translate(augmentation):
         self.axis = int(axis)
 
     def augment(self, image):
-        translate_factor = self.distrobution(0, self.variance)
-        return ctc_utils.translate(image, translate_factor, self.axis)
+        pass
     
 class blur(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('blur', distrobution, variance)
 
     def augment(self, image):
-        blur_factor = self.distrobution(0, self.variance)
-        return ctc_utils.blur(image, blur_factor)
+        pass
 
 class contrast_shift(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('contrast_shift', distrobution, variance)
 
     def augment(self, image):
-        contrast_factor = self.distrobution(0, self.variance)
-        return ctc_utils.contrast_shift(image, contrast_factor)
+        if self.distrobution == np.random.normal:
+            lower = 1.0 - np.abs(self.distrobution(0, self.variance))
+            upper = 1.0 + np.abs(self.distrobution(0, self.variance))
+            lower = np.clip(lower, CONTRAST_FACTOR_MIN, upper)
+            upper = np.clip(upper, lower, CONTRAST_FACTOR_MAX)
+        elif self.distrobution == np.random.uniform:
+            lower = 1.0 -  self.variance
+            lower = np.clip(lower, CONTRAST_FACTOR_MIN, CONTRAST_FACTOR_MAX)
+            upper = 1.0 + self.variance
+            upper = np.clip(upper, CONTRAST_FACTOR_MIN, CONTRAST_FACTOR_MAX)
+        else:
+            raise Exception('Invalid distrobution type \"' + str(self.distrobution) + '\"')
+
+        return tf.image.random_contrast(image, lower=lower, upper=upper)
     
 class brightness_shift(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('brightness_shift', distrobution, variance)
 
     def augment(self, image):
-        brightness_factor = self.distrobution(0, self.variance)
-        return ctc_utils.brightness_shift(image, brightness_factor)
+        if self.distrobution == np.random.normal:
+            brightness_delta = self.distrobution(0, self.variance)
+        elif self.distrobution == np.random.uniform:
+            brightness_delta = self.distrobution(-self.variance, self.variance)
+
+        brightness_delta = np.clip(brightness_delta, BRIGHTNESS_DELTA_MIN, BRIGHTNESS_DELTA_MAX)
+        return tf.image.adjust_brightness(image, delta=brightness_delta)
     
 class sharpen(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('sharpen', distrobution, variance)
 
     def augment(self, image):
-        sharpen_factor = self.distrobution(0, self.variance)
-        return ctc_utils.sharpen(image, sharpen_factor)
+        pass
     
 class salt_pepper(augmentation):
     def __init__(self, variance, distrobution = np.random.normal):
         super().__init__('salt_pepper', distrobution, variance)
 
     def augment(self, image):
-        salt_pepper_factor = self.distrobution(0, self.variance)
-        np.clip(salt_pepper_factor, SALT_PEPPER_FACTOR_MIN, SALT_PEPPER_FACTOR_MAX)
-
-        salt_pepper_mat = np.zeros(image.shape, dtype="uint8")
         if self.distrobution == np.random.normal:
-            salt_pepper_mat = cv2.randn(salt_pepper_mat,0,self.variance)
-            salt_pepper_mat = cv2.add(image, salt_pepper_mat)
-        elif self.distrobution == np.random.uniform: #variance doesn't matter for uniform
-            salt_pepper_mat = cv2.randu(salt_pepper_mat,0,255)
-            salt_pepper_mat = salt_pepper_mat < self.variance
-            salt_pepper_mat = salt_pepper_mat.astype(np.uint8)
-            salt_pepper_mat = salt_pepper_mat * 255
-            salt_pepper_mat = cv2.add(image, salt_pepper_mat)
-        else:
-            raise Exception('Invalid distrobution type \"' + str(self.distrobution) + '\"')       
+            noise = tf.random.normal(tf.shape(image), 0, 1)
+        elif self.distrobution == np.random.uniform:
+            noise = tf.random.uniform(tf.shape(image), 0, 1)
+        
+        salt_noise = np.abs(self.distrobution(0, self.variance))
+        
+        salt_noise = np.clip(salt_noise, SALT_PEPPER_FACTOR_MIN, SALT_PEPPER_FACTOR_MAX)        
+        image_with_salt = tf.minimum(image + salt_noise, 1.0)
 
-        return salt_pepper_mat
+        pepper_noise = tf.where(noise > (1.0 - image), 0.0, 1.0)
+        image_with_salt_and_pepper = tf.maximum(image_with_salt - pepper_noise, 0.0)
+
+        return image_with_salt_and_pepper
     
 class radial_distortion(augmentation):
     def __init__(self, variance, distrobution):
@@ -237,30 +244,4 @@ class distort(augmentation):
         super().__init__("distortion", distrobution, variance)
     
     def augment(self, image):
-        image = ctc_utils.scale(image, 0.5)
-        # Define the transformation matrix (m)
-        m = np.identity(3)
-        for i in range(3):
-            for j in range(3):
-                if i == 1 and j == 1:
-                    m[i][j] = 1
-                elif i == j:
-                    m[i][j] = 1 + self.distrobution(0, self.variance)
-                else:
-                    m[i][j] = self.distrobution(0, self.variance)
-
-        # Define the size of the output image (dsize)
-        output_size = (image.shape[1], image.shape[0])  # Keep the same size as the input
-        
-        # Do not allow the image to be distorted out of frame
-        m[0][2] = np.clip(m[0][2], -image.shape[1], image.shape[1])
-        m[1][2] = np.clip(m[1][2], -image.shape[0], image.shape[0])
-
-        # Apply the transformation matrix to the image
-        output_image = cv2.warpPerspective(image, m, output_size, borderValue=255)
-
-        # Crop the image to eliminate whike space
-        output_image = ctc_utils.crop(output_image)
-
-        return output_image
-    
+        pass
